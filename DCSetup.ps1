@@ -13,11 +13,15 @@ Configuration DCSetup
             Address ='10.45.0.11'             
             
         }
-        WindowsFeature ADDSInstall
+        Foreach ($Feature in $Node.Features)
         {
-            Ensure = "Present"
-            Name = "AD-Domain-Services"
+            WindowsFeature $Feature
+            {
+                Ensure = "Present"
+                Name = $Feature
+            }
         }
+        
 
         xADDomain LabDomain
         {
@@ -56,8 +60,10 @@ $configdata =
                 #CertificateFile = 'C:\DSCConfig\Certificate\DSCPublicCert.cer'
                 #Thumbprint = "89FCE5329EE98B7685FBB45BC7C102F1D0ED4607"
                 PSDscAllowPlainTextPassword = $true
+                Features='DHCP','AD-Domain-Services'
             }
         )
     }
+
     DCSetup -ConfigurationData $configdata
     Start-DscConfiguration -CimSession $CIM -Path .\DCSetup -Verbose -Wait -Force
