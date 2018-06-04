@@ -1,5 +1,6 @@
 $computername="SCSI01"
 if(!$credentials){$credentials=get-credential}
+
 Configuration Labsetup
 {
     Import-DscResource -Name xDNSServerAddress,xDSCDomainjoin
