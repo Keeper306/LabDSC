@@ -4,6 +4,7 @@ if(!$newadusercred){$NewADUserCred=get-credential -Message 'AD USer'}
 Configuration DCSetup
 {
     Import-DscResource -Name xDNSServerAddress,xADDomain,xADUser,xWaitForADDomain,WindowsFeature,xADGroup
+    Import-DscResource -module xDHCpServer
     Node $AllNodes.Where{$_.Role -eq "Primary DC"}.Nodename
     {
         xDNSServerAddress DNS #ResourceName
@@ -26,7 +27,7 @@ Configuration DCSetup
         xADDomain LabDomain
         {
             DomainName='DC.LAB'
-            DependsOn = '[xDNSServerAddress]DNS','[WindowsFeature]ADDSInstall'
+            DependsOn = '[xDNSServerAddress]DNS',"[WindowsFeature]AD-Domain-Services"
             DomainAdministratorCredential=$credential
             SafemodeAdministratorPassword=$credential
         }
@@ -47,6 +48,34 @@ Configuration DCSetup
            GroupName = 'Domain Admins'
            MembersToInclude = 'aivanov'
            DependsOn = "[xADUser]aivanov"
+        }
+        xDhcpServerAuthorization LocalServerActivation
+        {
+            Ensure = 'Present'
+            DependsOn = "[WindowsFeature]DHCP"
+        }
+        
+        xDhcpServerScope Scope45
+        {
+            IPStartRange = '10.45.0.65'
+            IPEndRange = '10.45.0.128'
+            Name = '10.45.0.0/24 Scope'
+            SubnetMask = '255.255.255.0'
+            AddressFamily = 'IPv4'
+            Ensure = 'Present'
+            LeaseDuration = ((New-TimeSpan -Hours 8 ).ToString())
+            State = 'Active'
+            DependsOn = "[xDhcpServerAuthorization]LocalServerActivation"
+         }
+         xDhcpServerOption Option
+        {
+            Ensure = 'Present'
+            ScopeID = '10.45.0.0'
+            DnsDomain = $Node.DomainName
+            DnsServerIPAddress = '10.45.0.11'
+            AddressFamily = 'IPv4'
+            Router = '10.45.0.1'
+            DependsOn = "[xDhcpServerScope]Scope45"
         }
     }
 }
