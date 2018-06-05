@@ -5,6 +5,7 @@ Configuration DCSetup
 {
     Import-DscResource -Name xDNSServerAddress,xADDomain,xADUser,xWaitForADDomain,WindowsFeature,xADGroup
     Import-DscResource -module xDHCpServer
+    Import-DscResource -module xDnsServer
     Node $AllNodes.Where{$_.Role -eq "Primary DC"}.Nodename
     {
         xDNSServerAddress DNS #ResourceName
@@ -66,8 +67,8 @@ Configuration DCSetup
             LeaseDuration = ((New-TimeSpan -Hours 8 ).ToString())
             State = 'Active'
             DependsOn = "[xDhcpServerAuthorization]LocalServerActivation"
-         }
-         xDhcpServerOption Option
+        }
+        xDhcpServerOption Option
         {
             Ensure = 'Present'
             ScopeID = '10.45.0.0'
@@ -77,7 +78,18 @@ Configuration DCSetup
             Router = '10.45.0.1'
             DependsOn = "[xDhcpServerScope]Scope45"
         }
+        xDnsRecord AdmARec
+        {
+            Name = "Adm01"
+            Target = "10.45.0.2"
+            Zone = $Node.DomainName
+            Type = "ARecord"
+            Ensure = "Present"
+            DependsOn = "[xADDomain]LabDomain"
+        }
     }
+    
+    
 }
 $configdata = 
     @{
