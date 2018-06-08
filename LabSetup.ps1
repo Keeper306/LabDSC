@@ -1,45 +1,60 @@
-$computername="SCSI01"
-if(!$credentials){$credentials=get-credential}
+if(!$credential){$credential=get-credential -message 'Domain Creds' }
+$CIM=New-CimSession -ComputerName SQL01 -Credential $credenetial
+$Adapter=Get-Netadapter -CimSession $cim
+
+
+$config= 
+@{
+    AllNodes = @(
+        @{
+            NodeName = "SQL01"
+            InterfaceAlias=$Adapter.InterfaceAlias
+            PSDscAllowPlainTextPassword = $true
+            Role='SQL'
+        }
+    )
+
+    Data= 
+    @{
+        DnsServerAddress='10.45.0.11'
+        DomainName='DC.LAB'
+
+
+    }
+
+    
+}
 
 Configuration Labsetup
 {
     Import-DscResource -Name xDNSServerAddress,xDSCDomainjoin
-    Node $configdata.AllNodes.nodename
+    Node $AllNodes.where{$_.Role -eq 'SQL'}.nodename
     {    
         
         xDNSServerAddress DNS #ResourceName
         {
             AddressFamily ='IPv4'
-            InterfaceAlias ='Ethernet 2'
-            Address ='192.168.137.11'             
+            InterfaceAlias =$Node.InterfaceAlias
+            Address =$Config.Data.DnsServerAddress            
             Validate = $true
         }
         xDSCDomainjoin DomainJoin #ResourceName
         {
-            Domain = 'l745.lab'
-            Credential = ($credentials)
+            Domain = $config.Data.DomainName
+            Credential = $credential
             DependsOn = '[xDNSServerAddress]DNS'
             
         }
-        <# LocalConfigurationManager
+        LocalConfigurationManager
         {
-             CertificateId = $node.Thumbprint
-        }#>
+            RebootNodeIfNeeded = $true    
+        }
     }
     
 }
 
-$configdata = 
-@{
-    AllNodes = @(
-        @{
-            NodeName = "$computername"
-            #CertificateFile = 'C:\DSCConfig\Certificate\DSCPublicCert.cer'
-            #Thumbprint = "89FCE5329EE98B7685FBB45BC7C102F1D0ED4607"
-            PSDscAllowPlainTextPassword = $true
-        }
-    )
-}
-
-Labsetup -ConfigurationData $configdata
-
+Labsetup -ConfigurationData $config -Verbose
+<#
+Set-DscLocalConfigurationManager -Path .\Labsetup\SQL01.meta.mof -CimSession $cim
+Start-DscConfiguration -path .\ -CimSession $cim -verbose -wait
+#>
